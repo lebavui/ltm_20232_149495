@@ -3,5 +3,5 @@
 
 void main() {
     short int N = 8000;
-    printf("%d", htons(N));
+    printf("%d\n", htons(N));
 }
