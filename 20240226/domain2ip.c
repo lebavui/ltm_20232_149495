@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <string.h>
 
 int main() {
     struct addrinfo *res, *p;
