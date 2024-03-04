@@ -2,6 +2,8 @@
     "editor.fontSize": 18,
     "cmake.configureOnOpen": false,
     "files.associations": {
-        "types.h": "c"
+        "types.h": "c",
+        "string.h": "c",
+        "stdlib.h": "c"
     }
 }
