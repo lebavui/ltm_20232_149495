@@ -4,6 +4,7 @@
     "files.associations": {
         "types.h": "c",
         "string.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "socket.h": "c"
     }
 }
