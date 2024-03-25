@@ -5,6 +5,7 @@
         "types.h": "c",
         "string.h": "c",
         "stdlib.h": "c",
-        "socket.h": "c"
+        "socket.h": "c",
+        "select.h": "c"
     }
 }
