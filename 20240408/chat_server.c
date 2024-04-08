@@ -7,6 +7,23 @@
 #include <unistd.h>
 #include <sys/select.h>
 
+int remove_client(int client, int *client_sockets, char **client_names, int *num_clients) {
+    int i = 0;
+    for (; i < *num_clients; i++)
+        if (client_sockets[i] == client)
+            break;
+    
+    if (i < *num_clients) {
+        if (i < *num_clients - 1) {
+            client_sockets[i] = client_sockets[*num_clients - 1];
+            strcpy(client_names[i], client_names[*num_clients - 1]);
+        }
+
+        free(client_names[*num_clients - 1]);
+        *num_clients -= 1;
+    }
+}
+
 int main() {
     // Tao socket cho ket noi
     int listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -67,15 +84,20 @@ int main() {
                 } else {
                     // Co du lieu truyen den
                     int client = i;
-                    ret = recv(client, buf, sizeof(buf), 0);
+                    ret = recv(client, buf, sizeof(buf), 0); 
                     if (ret <= 0) {
                         close(client);
                         FD_CLR(client, &fdread);
-                    } else {
-                        buf[ret] = 0;
-                        printf("Received from %d: %s\n", client, buf);
+
+                        // Xoa client ra khoi mang dang nhap
+                        remove_client(client, client_sockets, client_names, &num_clients);
+                        continue;
                     }
 
+                    // In ra man hinh server   
+                    buf[ret] = 0;
+                    printf("Received from %d: %s\n", client, buf);
+                    
                     // Kiem tra trang thai dang nhap
                     int j = 0;
                     for (; j < num_clients; j++)
@@ -118,13 +140,27 @@ int main() {
                         }
                     } else {
                         // Da dang nhap
-                        // Chuyen tiep tin nhan cho cac client da dang nhap khac
-                        for (int k = 0; k < num_clients; k++)
-                            if (client_sockets[k] != client) {
-                                char msg[512];
-                                sprintf(msg, "%s: %s\n", client_names[j], buf);
-                                send(client_sockets[k], msg, strlen(msg), 0);
-                            }
+
+                        char receiver[32];
+                        sscanf(buf, "%s", receiver);
+
+                        if (strcmp(receiver, "all") == 0) {
+                            // Chuyen tiep tin nhan cho cac client da dang nhap khac
+                            for (int k = 0; k < num_clients; k++)
+                                if (client_sockets[k] != client) {
+                                    char msg[512];
+                                    sprintf(msg, "%s: %s\n", client_names[j], buf + strlen(receiver) + 1);
+                                    send(client_sockets[k], msg, strlen(msg), 0);
+                                }
+                        } else {
+                            // Chuyen tiep tin nhan cho mot client 
+                            for (int k = 0; k < num_clients; k++)
+                                if (strcmp(client_names[k], receiver) == 0) {
+                                    char msg[512];
+                                    sprintf(msg, "%s: %s\n", client_names[j], buf + strlen(receiver) + 1);
+                                    send(client_sockets[k], msg, strlen(msg), 0);
+                                }
+                        }
                     }
                 }
             }
