@@ -46,7 +46,7 @@ int main() {
     char buf[256];
 
     while (1) {
-        int ret = poll(fds, nfds, 0);
+        int ret = poll(fds, nfds, -1);
         if (ret == -1) {
             break;
         }
@@ -81,6 +81,11 @@ int main() {
                         // Xu ly du lieu nhan duoc
                         buf[ret] = 0;
                         printf("Received from %d: %s\n", client, buf);
+
+                        // Chuyen tiep du lieu cho cac client khac
+                        for (int j = 0; j < nfds; j++)
+                            if (fds[j].fd != listener && fds[j].fd != client)
+                                send(fds[j].fd, buf, strlen(buf), 0);
                     }
                 }
             }
