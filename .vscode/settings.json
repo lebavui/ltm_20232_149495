@@ -6,6 +6,9 @@
         "string.h": "c",
         "stdlib.h": "c",
         "socket.h": "c",
-        "select.h": "c"
+        "select.h": "c",
+        "unistd.h": "c",
+        "signal.h": "c",
+        "wait.h": "c"
     }
 }
