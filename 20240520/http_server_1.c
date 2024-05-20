@@ -6,16 +6,15 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
 
 void *client_proc(void *);
 
 int main() {
     // Tao socket cho ket noi
     int listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listener == -1) {
-        perror("socket() failed");
-        return 1;
-    }
+    
+    
 
     // Khai bao dia chi server
     struct sockaddr_in addr;
@@ -30,7 +29,7 @@ int main() {
     }
 
     // Chuyen socket sang trang thai cho ket noi
-    if (listen(listener, 5)) {
+    if (listen(listener, 10)) {
         perror("listen() failed");
         return 1;
     }
@@ -97,21 +96,28 @@ void *client_proc(void *arg) {
             int len = fread(fbuf, 1, sizeof(fbuf), f);
             if (len <= 0)
                 break;
-            send(client, fbuf, len, 0);
+            // Note: Đối với file có kích thước lớn, có thể bị lỗi Broken Pipe khi thực hiện lệnh send.
+            // Để tránh lỗi này, khi gửi sử dụng tham số MSG_NOSIGNAL ở cuối.
+            send(client, buf, len, MSG_NOSIGNAL);
         }
         fclose(f);
     } else if (strncmp(buf, "GET /video ", 11) == 0) {
+        FILE *f = fopen("./files/test.mp4", "rb");
+        
+        fseek(f, 0, SEEK_END);
+        long filesize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+
         // Tra ve file video
-        strcpy(buf, "HTTP/1.1 200 OK\r\nContent-Type: video/mp4\r\n\r\n");
+        sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Type: video/mp4\r\nContent-Length: %ld\r\n\r\n", filesize);
         send(client, buf, strlen(buf), 0);
 
         // Doc file video va tra ve client
-        FILE *f = fopen("./files/test.mp4", "rb");
         while (1) {
             int len = fread(buf, 1, sizeof(buf), f);
             if (len <= 0)
                 break;
-            send(client, buf, len, 0);
+            send(client, buf, len, MSG_NOSIGNAL);
         }
         fclose(f);
     }
