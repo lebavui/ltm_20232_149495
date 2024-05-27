@@ -8,9 +8,22 @@
 #include <netdb.h>
 #include <errno.h>
 
+int client;
+
+unsigned short send_pasv();
+int send_list();
+int download_file(char *remote_file);
+int upload_file(char *local_file);
+int rename_file(char *cur_file, char *new_file);
+int delete_file(char *filename);
+int print_working_dir();
+int change_working_dir(char *dirname);
+int make_dir(char *dirname);
+int remove_dir(char *dirname);
+
 int main() 
 {
-    int client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
@@ -81,9 +94,67 @@ int main()
         return 1;
     }
 
-    // Dang nhap thanh cong. Lay ve danh sach thu muc va tap tin.
-    // Gui lenh PASV
+    // Lay ve danh sach cua thu muc hien tai
+    send_list();
+
+    // Download file
+    printf("Nhap ten file de download: ");
+    char filename[256];
+    fgets(filename, sizeof(filename), stdin);
+    filename[strlen(filename) - 1] = 0;
+    download_file(filename);
+
+    close(client);
+}
+
+unsigned short send_pasv(int client) {
+    char buf[2048];
+
     send(client, "PASV\r\n", 6, 0);
+
+    int ret = recv(client, buf, sizeof(buf), 0);
+    if (ret <= 0) {
+        close(client);
+        return 1;
+    }
+
+    buf[ret] = 0;
+    // puts(buf);
+
+    char *pos = strchr(buf, '(');
+    int i1 = atoi(strtok(pos, "(),"));
+    int i2 = atoi(strtok(NULL, "(),"));
+    int i3 = atoi(strtok(NULL, "(),"));
+    int i4 = atoi(strtok(NULL, "(),"));
+    int p1 = atoi(strtok(NULL, "(),"));
+    int p2 = atoi(strtok(NULL, "(),"));
+
+    return p1 * 256 + p2;
+}
+
+int send_list() {
+    // Gui lenh PASV
+    unsigned short port = send_pasv(client);
+    printf("Port: %d\n", port);
+
+    // Mo ket noi du lieu 
+    int client_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    struct sockaddr_in addr_data;
+    addr_data.sin_family = AF_INET;
+    addr_data.sin_addr.s_addr = inet_addr("10.13.32.202");
+    addr_data.sin_port = htons(port);
+
+    int ret = connect(client_data, (struct sockaddr *) &addr_data, sizeof(addr_data));
+    if (ret == -1) {
+        perror("connect() failed");
+        return 1;
+    }
+
+    // Gui lenh LIST
+    send(client, "LIST\r\n", 6, 0);
+
+    char buf[2048];
 
     ret = recv(client, buf, sizeof(buf), 0);
     if (ret <= 0) {
@@ -94,10 +165,81 @@ int main()
     buf[ret] = 0;
     puts(buf);
 
-    // Xu ly ket qua lenh PASV
-    // 1. Lay ra dia chi IP
-    // 2. Lay ra gia tri cong
-    // 3. Mo ket noi den dia chi tren server
+    // Nhan du lieu tren kenh du lieu
+    // In ra man hinh
+    while (1) {
+        ret = recv(client_data, buf, sizeof(buf) - 1, 0);
+        if (ret <= 0) {
+            close(client_data);
+            break;
+        }
 
-    close(client);
+        buf[ret] = 0;
+        printf("%s", buf);
+    }
+
+    printf("\n");
+
+    ret = recv(client, buf, sizeof(buf), 0);
+    if (ret <= 0) {
+        close(client);
+        return 1;
+    }
+
+    buf[ret] = 0;
+    puts(buf);
+}
+
+int download_file(char *remote_file) {
+    unsigned short port = send_pasv(client);
+    printf("Port: %d\n", port);
+
+    // Mo ket noi du lieu 
+    int client_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    struct sockaddr_in addr_data;
+    addr_data.sin_family = AF_INET;
+    addr_data.sin_addr.s_addr = inet_addr("10.13.32.202");
+    addr_data.sin_port = htons(port);
+
+    int ret = connect(client_data, (struct sockaddr *) &addr_data, sizeof(addr_data));
+    if (ret == -1) {
+        perror("connect() failed");
+        return 1;
+    }
+
+    char buf[2048];
+
+    // Gui lenh retr
+    sprintf(buf, "retr %s\r\n", remote_file);
+    send(client, buf, strlen(buf), 0);
+
+    ret = recv(client, buf, sizeof(buf), 0);
+    if (ret <= 0) {
+        close(client);
+        return 1;
+    }
+
+    buf[ret] = 0;
+    puts(buf);
+
+    // Nhan noi dung file
+    FILE *f = fopen(remote_file, "wb");
+    while (1) {
+        ret = recv(client_data, buf, sizeof(buf), 0);
+        if (ret <= 0)
+            break;
+        fwrite(buf, 1, ret, f);
+    }
+    close(client_data);
+    fclose(f);
+
+    ret = recv(client, buf, sizeof(buf), 0);
+    if (ret <= 0) {
+        close(client);
+        return 1;
+    }
+
+    buf[ret] = 0;
+    puts(buf);
 }
