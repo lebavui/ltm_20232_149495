@@ -9,11 +9,13 @@
 
 void *client_proc(void *);
 
+int get_index(int client);
 int remove_client(int client, int *client_sockets, char **client_names, int *num_clients);
+
 int check_join(int client);
 int process_join(int client, char *buf);
-int process_msg(int client);
-int process_pmsg(int client);
+int process_msg(int client, char *buf);
+int process_pmsg(int client, char *buf);
 int process_op(int client);
 int process_kick(int client);
 int process_topic(int client);
@@ -97,9 +99,9 @@ void *client_proc(void *arg) {
         if (strncmp(buf, "JOIN ", 5) == 0)
             process_join(client, buf);
         else if (strncmp(buf, "MSG ", 4) == 0)
-            process_msg(client);
+            process_msg(client, buf);
         else if (strncmp(buf, "PMSG ", 5) == 0)
-            process_pmsg(client);
+            process_pmsg(client, buf);
         else if (strncmp(buf, "OP ", 3) == 0)
             process_op(client);
         else if (strncmp(buf, "KICK ", 5) == 0)
@@ -112,39 +114,6 @@ void *client_proc(void *arg) {
             char *msg = "999 Unknown command\n";
             send(client, msg, strlen(msg), 0);
         }
-
-        // // Kiem tra trang thai dang nhap
-        // int i = 0;
-        // for (; i < num_clients; i++)
-        //     if (client_sockets[i] == client)
-        //         break;
-        
-        // if (i == num_clients) {
-            
-        // } else {
-        //     // Da dang nhap
-
-        //     char receiver[32];
-        //     sscanf(buf, "%s", receiver);
-
-        //     if (strcmp(receiver, "all") == 0) {
-        //         // Chuyen tiep tin nhan cho cac client da dang nhap khac
-        //         for (int k = 0; k < num_clients; k++)
-        //             if (client_sockets[k] != client) {
-        //                 char msg[512];
-        //                 sprintf(msg, "%s: %s\n", client_names[i], buf + strlen(receiver) + 1);
-        //                 send(client_sockets[k], msg, strlen(msg), 0);
-        //             }
-        //     } else {
-        //         // Chuyen tiep tin nhan cho mot client 
-        //         for (int k = 0; k < num_clients; k++)
-        //             if (strcmp(client_names[k], receiver) == 0) {
-        //                 char msg[512];
-        //                 sprintf(msg, "%s: %s\n", client_names[i], buf + strlen(receiver) + 1);
-        //                 send(client_sockets[k], msg, strlen(msg), 0);
-        //             }
-        //     }
-        // }
     }
 
     close(client);
@@ -156,6 +125,14 @@ int check_join(int client) {
         if (client_sockets[i] == client)
             break;
     return i < num_clients;
+}
+
+int get_index(int client) {
+    int i = 0;
+    for (; i < num_clients; i++)
+        if (client_sockets[i] == client)
+            break;
+    return i;
 }
 
 int process_join(int client, char *buf) {
@@ -195,6 +172,14 @@ int process_join(int client, char *buf) {
                     memcpy(client_names[num_clients], id, strlen(id) + 1);
                     // strcpy(client_names[num_clients], id);
                     num_clients++;
+
+                    // Gui thong diep cho cac client khac
+                    for (int k = 0; k < num_clients; k++)
+                        if (client_sockets[k] != client) {
+                            char msg[512];
+                            sprintf(msg, "JOIN %s\n", id);
+                            send(client_sockets[k], msg, strlen(msg), 0);
+                        }
                 }
             }
         } else {
@@ -202,15 +187,62 @@ int process_join(int client, char *buf) {
             send(client, msg, strlen(msg), 0);
         }
     } else {
+        char *msg = "888 Wrong state\n";
+        send(client, msg, strlen(msg), 0);
+    }
+
+    return 0;
+}
+
+int process_msg(int client, char *buf) {
+    if (check_join(client)) {
+        int idx = get_index(client);
+        // Chuyen tiep tin nhan cho cac client da dang nhap khac
+        for (int k = 0; k < num_clients; k++)
+            if (client_sockets[k] != client) {
+                char msg[512];
+                sprintf(msg, "MSG %s %s\n", client_names[idx], buf + 4);
+                send(client_sockets[k], msg, strlen(msg), 0);
+            }
+
+        char *msg = "100 OK\n";
+        send(client, msg, strlen(msg), 0);
+    } else {
         char *msg = "999 Unknown error\n";
         send(client, msg, strlen(msg), 0);
     }
-}
-
-int process_msg(int client) {
     return 0;
 }
-int process_pmsg(int client) {
+int process_pmsg(int client, char *buf) {
+    if (check_join(client)) {
+        int idx = get_index(client);
+
+        char receiver[32];
+        sscanf(buf + 5, "%s", receiver);
+
+        // Chuyen tiep tin nhan cho mot client
+        int k = 0; 
+        for (; k < num_clients; k++)
+            if (strcmp(client_names[k], receiver) == 0)     
+                break;
+        
+        if (k < num_clients) {
+            // Tim thay nguoi nhan
+            char msg[512];
+            sprintf(msg, "PMSG %s %s\n", client_names[idx], buf + strlen(receiver) + 6);
+            send(client_sockets[k], msg, strlen(msg), 0);
+
+            char *response = "100 OK\n";
+            send(client, response, strlen(response), 0);
+        } else {
+            // Khong thay nguoi nhan
+            char *msg = "202 Unknown nickname\n";
+            send(client, msg, strlen(msg), 0);
+        }
+    } else {
+        char *msg = "999 Unknown error\n";
+        send(client, msg, strlen(msg), 0);
+    }
     return 0;
 }
 int process_op(int client) {
