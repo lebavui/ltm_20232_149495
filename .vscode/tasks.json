@@ -10,7 +10,8 @@
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",
-                "-pthread"
+                "-pthread",
+                "-lssl"
             ],
             "options": {
                 "cwd": "${fileDirname}"
