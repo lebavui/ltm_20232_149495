@@ -11,6 +11,7 @@
         "signal.h": "c",
         "wait.h": "c",
         "dirent.h": "c",
-        "inet.h": "c"
+        "inet.h": "c",
+        "ssl.h": "c"
     }
 }
